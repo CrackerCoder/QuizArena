@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Quiz Arena"
+version = "1.0.0"
+id = "artifacts/quiz-arena"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19088
+
+[services.development]
+run = "pnpm --filter @workspace/quiz-arena run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/quiz-arena", "run", "build" ]
+publicDir = "artifacts/quiz-arena/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19088"
+BASE_PATH = "/"
