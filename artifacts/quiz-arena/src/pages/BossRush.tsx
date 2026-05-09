@@ -263,7 +263,7 @@ export default function BossRush() {
           onDismiss={() => { markGameTutorialSeen("boss"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-3xl py-6 space-y-6">
+      <main className="container max-w-3xl py-6 space-y-6 overflow-y-auto">
         {lastAbility && (
           <div
             className="text-center text-xs uppercase tracking-[0.25em] font-bold animate-pop-in"

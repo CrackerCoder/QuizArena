@@ -33,6 +33,7 @@ export default function Hangman() {
   const startedAt = useRef<number>(Date.now());
   const recorded = useRef(false);
   const [showTutorial, setShowTutorial] = useState(() => !hasSeenGameTutorial("hangman"));
+  const nativeInputRef = useRef<HTMLInputElement>(null);
 
   const wordLetters = word.split("").filter((c) => /[a-z]/.test(c));
   const wrongs = [...guessed].filter((g) => !word.includes(g));
@@ -115,7 +116,19 @@ export default function Hangman() {
           onDismiss={() => { markGameTutorialSeen("hangman"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-md py-6 flex-1 flex flex-col">
+      <input
+        ref={nativeInputRef}
+        type="text"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        className="sr-only"
+        onKeyDown={(e) => {
+          if (/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); press(e.key.toLowerCase()); }
+        }}
+      />
+      <main className="container max-w-md py-6 flex-1 flex flex-col overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <Button variant="outline" size="sm" onClick={() => { sfx.click(); setHintOpen((o) => !o); setHintUsed(true); }} disabled={loading}>
             <Lightbulb className="h-4 w-4 mr-1" /> {t("hint")}
@@ -169,7 +182,25 @@ export default function Hangman() {
               </Card>
             )}
 
-            <div className="mt-auto grid grid-cols-7 gap-1.5">
+            <input
+              type="text"
+              defaultValue=""
+              className="mt-auto block sm:hidden w-full h-12 mb-2 rounded-xl border border-hangman/40 bg-secondary/60 text-center text-sm text-muted-foreground cursor-text"
+              placeholder="⌨️ Tap here — type any letter to guess"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              readOnly={won || lost || loading}
+              style={{ fontSize: "16px" }}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z]/g, "").toLowerCase();
+                if (val.length > 0) press(val[val.length - 1]);
+                e.target.value = "";
+              }}
+            />
+
+            <div className="grid grid-cols-7 gap-1.5">
               {ALPHA.map((k) => {
                 const used = guessed.has(k);
                 const wrong = used && !word.includes(k);

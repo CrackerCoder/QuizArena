@@ -55,6 +55,7 @@ export default function Wordle() {
   const startedAt = useRef<number>(Date.now());
   const recorded = useRef(false);
   const [showTutorial, setShowTutorial] = useState(() => !hasSeenGameTutorial("wordle"));
+  const nativeInputRef = useRef<HTMLInputElement>(null);
 
   const RECENT_KEY = "wordle-recent";
   const readRecent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { return []; } };
@@ -172,7 +173,21 @@ export default function Wordle() {
           onDismiss={() => { markGameTutorialSeen("wordle"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-md py-6 flex-1 flex flex-col">
+      <input
+        ref={nativeInputRef}
+        type="text"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        className="sr-only"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); press("ENTER"); }
+          else if (e.key === "Backspace") { e.preventDefault(); press("BACK"); }
+          else if (/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); press(e.key.toLowerCase()); }
+        }}
+      />
+      <main className="container max-w-md py-6 flex-1 flex flex-col overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <Button variant="outline" size="sm" onClick={() => { sfx.click(); setHintOpen((o) => !o); setHintUsed(true); }} disabled={loading}>
             <Lightbulb className="h-4 w-4 mr-1" /> {t("hint")}
@@ -235,7 +250,29 @@ export default function Wordle() {
               </Card>
             )}
 
-            <div className="mt-auto space-y-1.5">
+            <input
+              type="text"
+              defaultValue=""
+              className="mt-auto block sm:hidden w-full h-12 rounded-xl border border-primary/40 bg-secondary/60 text-center text-sm text-muted-foreground cursor-text"
+              placeholder="⌨️ Tap here to type your guess…"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              readOnly={!!done || loading}
+              style={{ fontSize: "16px" }}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z]/g, "").toLowerCase();
+                if (val.length > 0) press(val[val.length - 1]);
+                e.target.value = "";
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); press("ENTER"); }
+                else if (e.key === "Backspace") { e.preventDefault(); press("BACK"); }
+              }}
+            />
+
+            <div className="hidden sm:block mt-auto space-y-1.5">
               {KEYS.map((row, ri) => (
                 <div key={ri} className="flex gap-1 justify-center">
                   {ri === 2 && <button onClick={() => press("ENTER")} className="px-2 h-12 rounded-md bg-secondary text-xs font-bold arcade-press">ENTER</button>}

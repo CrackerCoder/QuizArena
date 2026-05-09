@@ -177,7 +177,7 @@ export default function Anagram() {
           onDismiss={() => { markGameTutorialSeen("anagram"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-md py-6 flex-1 flex flex-col gap-4">
+      <main className="container max-w-md py-6 flex-1 flex flex-col gap-4 overflow-y-auto">
 
         {/* Header row */}
         <div className="flex items-center justify-between text-sm">

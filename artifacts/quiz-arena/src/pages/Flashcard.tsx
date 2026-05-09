@@ -149,7 +149,7 @@ export default function Flashcard() {
         score: finalScore,
         details: { mastered: masteredSet.size, total: totalCards },
       });
-      submitScore(finalScore, outcome);
+      submitScore("flashcard", finalScore, outcome);
       submitResult("flashcard", finalScore, outcome);
     }
   }
@@ -170,7 +170,7 @@ export default function Flashcard() {
           onDismiss={() => { markGameTutorialSeen("flashcard"); setShowTutorial(false); }}
         />
       )}
-      <div className="container max-w-xl py-4 sm:py-6 px-4 flex-1 flex flex-col gap-4">
+      <div className="container max-w-xl py-4 sm:py-6 px-4 flex-1 flex flex-col gap-4 min-h-0">
 
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
@@ -196,8 +196,8 @@ export default function Flashcard() {
             <LeaderboardPanel game="flashcard" />
           </div>
         ) : current ? (
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="flex items-center justify-between text-sm">
+          <div className="flex-1 flex flex-col gap-4 min-h-0">
+            <div className="flex items-center justify-between text-sm shrink-0">
               <span className="text-muted-foreground">
                 {t("mastered", { n: masteredCount, total: totalCards })}
               </span>
@@ -208,54 +208,49 @@ export default function Flashcard() {
             <Progress value={progressPct} className="h-1.5" />
 
             <div
-              className="flex-1 min-h-[180px] cursor-pointer select-none"
+              className="flex-1 flex flex-col cursor-pointer select-none min-h-[200px]"
               onClick={handleFlip}
-              style={{ perspective: "1000px" }}
             >
-              <div
-                className="relative w-full h-full transition-all duration-500"
-                style={{
-                  transformStyle: "preserve-3d",
-                  transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                  minHeight: "180px",
-                }}
+              <Card
+                className={`flex-1 p-6 sm:p-8 flex flex-col items-center justify-center text-center gap-3 transition-colors duration-300 ${
+                  flipped
+                    ? "bg-gradient-card border-flashcard/40 border-2"
+                    : "bg-gradient-card border-border/60"
+                }`}
               >
-                <Card
-                  className="absolute inset-0 p-8 bg-gradient-card border-border/60 flex flex-col items-center justify-center text-center gap-3"
-                  style={{ backfaceVisibility: "hidden" }}
-                >
-                  <div className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">{t("frontLabel")}</div>
-                  <p className="font-display text-xl font-bold leading-snug">{current.front}</p>
-                  <div className="w-8 h-0.5 bg-flashcard/40 rounded-full mt-2" />
-                </Card>
-
-                <Card
-                  className="absolute inset-0 p-8 bg-gradient-card border-flashcard/40 border-2 flex flex-col items-center justify-center text-center gap-3"
-                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-                >
-                  <div className="text-xs text-flashcard uppercase tracking-widest font-semibold">{t("answerLabel")}</div>
-                  <p className="text-base leading-relaxed">{current.back}</p>
-                  {current.tip && (
-                    <p className="text-xs text-muted-foreground italic mt-2 border-t border-border/40 pt-2 w-full">
-                      💡 {current.tip}
-                    </p>
-                  )}
-                </Card>
-              </div>
+                {!flipped ? (
+                  <>
+                    <div className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">{t("frontLabel")}</div>
+                    <p className="font-display text-xl font-bold leading-snug">{current.front}</p>
+                    <div className="w-8 h-0.5 bg-flashcard/40 rounded-full mt-2" />
+                    <p className="text-xs text-muted-foreground mt-1">{t("tapToFlip") || "Tap to reveal answer"}</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs text-flashcard uppercase tracking-widest font-semibold">{t("answerLabel")}</div>
+                    <p className="text-base leading-relaxed">{current.back}</p>
+                    {current.tip && (
+                      <p className="text-xs text-muted-foreground italic mt-2 border-t border-border/40 pt-2 w-full">
+                        💡 {current.tip}
+                      </p>
+                    )}
+                  </>
+                )}
+              </Card>
             </div>
 
             {flipped ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 shrink-0">
                 <Button
                   variant="outline"
-                  className="border-boss/60 text-boss hover:bg-boss/10 py-6"
+                  className="border-boss/60 text-boss hover:bg-boss/10 py-4 sm:py-6"
                   onClick={handleReview}
                 >
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   {t("reviewAgain")}
                 </Button>
                 <Button
-                  className="bg-gradient-to-r from-wordle-correct to-success text-white py-6"
+                  className="py-4 sm:py-6 text-white"
                   onClick={handleGotIt}
                   style={{ background: "linear-gradient(135deg, hsl(142 65% 45%), hsl(142 75% 50%))" }}
                 >
@@ -266,7 +261,7 @@ export default function Flashcard() {
             ) : (
               <Button
                 variant="outline"
-                className="w-full py-6 text-flashcard border-flashcard/40"
+                className="w-full py-4 sm:py-6 text-flashcard border-flashcard/40 shrink-0"
                 onClick={handleFlip}
               >
                 {t("revealAnswer")}

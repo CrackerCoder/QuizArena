@@ -146,6 +146,7 @@ export default function Crossword() {
   const [score, setScore] = useState(0);
   const startedAt = useRef(Date.now());
   const recorded = useRef(false);
+  const nativeInputRef = useRef<HTMLInputElement>(null);
   const [showTutorial, setShowTutorial] = useState(() => !hasSeenGameTutorial("crossword"));
 
   const load = async () => {
@@ -213,6 +214,7 @@ export default function Crossword() {
     setSelWi(nextWi);
     setCurPos(Math.max(0, Math.min(pos, p.word.length - 1)));
     sfx.click();
+    nativeInputRef.current?.focus();
   };
 
   const handleKey = useCallback((e: KeyboardEvent) => {
@@ -294,6 +296,7 @@ export default function Crossword() {
     })();
     const letter = userGrid[dr]?.[dc] ?? "";
     if (checked && letter) return letter === cell.letter ? "bg-success/80 text-white border-success" : "bg-destructive/80 text-white border-destructive";
+    if (checked && !letter) return "bg-warning/70 text-white border-warning";
     if (isCursor) return "bg-primary/80 text-white border-primary ring-1 ring-primary";
     if (isSelected) return "bg-primary/20 border-primary/50";
     return "bg-card border-border";
@@ -319,7 +322,7 @@ export default function Crossword() {
           onDismiss={() => { markGameTutorialSeen("crossword"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-2xl py-6 flex-1 flex flex-col gap-4">
+      <main className="container max-w-2xl py-6 flex-1 flex flex-col gap-4 overflow-y-auto">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">{t("clickCellInstruction")}</p>
           <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
@@ -348,7 +351,7 @@ export default function Crossword() {
                           {cell?.num && (
                             <span className="absolute top-0 left-0.5 text-[8px] text-muted-foreground/70 font-normal leading-none">{cell.num}</span>
                           )}
-                          {cell && (userGrid[dr]?.[dc] || "")}
+                          {cell && (userGrid[dr]?.[dc] || (done ? cell.letter : ""))}
                         </div>
                       );
                     })}
@@ -356,6 +359,65 @@ export default function Crossword() {
                 ))}
               </div>
             </div>
+
+            <input
+              ref={nativeInputRef}
+              type="text"
+              defaultValue=""
+              className="sm:hidden w-full h-12 rounded-xl border border-crossword/40 bg-secondary/60 text-center text-sm text-muted-foreground cursor-text"
+              placeholder={selWi !== null ? "⌨️ Type to fill selected word…" : "⌨️ Tap a cell first, then type…"}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              readOnly={done}
+              style={{ fontSize: "16px" }}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z]/g, "");
+                if (val.length > 0 && selWi !== null && !done) {
+                  const key = val[val.length - 1].toUpperCase();
+                  const p = placed[selWi];
+                  if (p) {
+                    const r = p.dir === "down" ? p.row + curPos : p.row;
+                    const c = p.dir === "across" ? p.col + curPos : p.col;
+                    const newUser = userGrid.map(row => [...row]);
+                    newUser[r - bounds.minR][c - bounds.minC] = key;
+                    setUserGrid(newUser);
+                    sfx.type();
+                    if (curPos < p.word.length - 1) setCurPos(curPos + 1);
+                  }
+                }
+                e.target.value = "";
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Backspace") {
+                  e.preventDefault();
+                  if (selWi !== null && !done) {
+                    const p = placed[selWi];
+                    if (p) {
+                      const r = p.dir === "down" ? p.row + curPos : p.row;
+                      const c = p.dir === "across" ? p.col + curPos : p.col;
+                      const dr2 = r - bounds.minR, dc2 = c - bounds.minC;
+                      const newUser = userGrid.map(row => [...row]);
+                      if (newUser[dr2][dc2] !== "") {
+                        newUser[dr2][dc2] = "";
+                      } else if (curPos > 0) {
+                        const pr = p.dir === "down" ? p.row + curPos - 1 : p.row;
+                        const pc = p.dir === "across" ? p.col + curPos - 1 : p.col;
+                        newUser[pr - bounds.minR][pc - bounds.minC] = "";
+                        setCurPos(curPos - 1);
+                      }
+                      setUserGrid(newUser);
+                      sfx.click();
+                    }
+                  }
+                } else if (e.key === "Tab") {
+                  e.preventDefault();
+                  if (selWi !== null) setSelWi((selWi + 1) % placed.length);
+                  setCurPos(0);
+                }
+              }}
+            />
 
             {!done ? (
               <Button onClick={checkAnswers} className="bg-gradient-crossword w-full">

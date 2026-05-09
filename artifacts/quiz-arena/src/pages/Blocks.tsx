@@ -537,7 +537,7 @@ export default function Blocks() {
           onDismiss={() => { markGameTutorialSeen("blocks"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-md py-6 space-y-4 relative" style={{ touchAction: "none" }}>
+      <main className="container max-w-md py-6 space-y-4 relative overflow-y-auto" style={{ touchAction: noMoves ? "auto" : "none" }}>
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-muted-foreground uppercase tracking-wider">{t("scoreLabel")}</div>
@@ -801,9 +801,9 @@ function QuestionModal({
   useEffect(() => { setVal(""); }, [q]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="flash-rise w-[min(92vw,460px)]">
-        <Card className="bg-gradient-card border-2 border-accent/60 shadow-glow p-5 sm:p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[env(safe-area-inset-top,16px)] overflow-y-auto">
+      <div className="flash-rise w-[min(92vw,460px)] my-auto">
+        <Card className="bg-gradient-card border-2 border-accent/60 shadow-glow p-5 sm:p-6 space-y-4 max-h-[85dvh] overflow-y-auto">
           <div className="flex items-center gap-2 text-accent">
             <Gift className="h-5 w-5" />
             <div className="font-display font-bold text-sm uppercase tracking-wider">
