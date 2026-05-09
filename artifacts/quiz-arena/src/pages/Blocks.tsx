@@ -872,6 +872,17 @@ function QuestionModal({
   const [val, setVal] = useState("");
   useEffect(() => { setVal(""); }, [q]);
 
+  // Shuffle choices once per question, at render time — guaranteed randomness
+  const shuffledChoices = useMemo(() => {
+    if (!q?.choices || q.choices.length < 2) return q?.choices ?? [];
+    const arr = [...q.choices];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, [q]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[env(safe-area-inset-top,16px)] overflow-y-auto">
       <div className="flash-rise w-[min(92vw,460px)] my-auto">
@@ -894,7 +905,7 @@ function QuestionModal({
               <div className="text-base sm:text-lg font-medium leading-relaxed">{q.prompt}</div>
               {q.type === "mcq" && q.choices ? (
                 <div className="grid gap-2">
-                  {q.choices.map((c) => (
+                  {shuffledChoices.map((c) => (
                     <Button
                       key={c}
                       variant="outline"
