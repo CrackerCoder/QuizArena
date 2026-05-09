@@ -177,7 +177,7 @@ export default function Blocks() {
   useEffect(() => { boardLive.current = board; }, [board]);
   const piecesLive = useRef(pieces);
   useEffect(() => { piecesLive.current = pieces; }, [pieces]);
-  const commitPlaceRef = useRef(commitPlace);
+  const commitPlaceRef = useRef<typeof commitPlace | null>(null);
   useEffect(() => { commitPlaceRef.current = commitPlace; });
 
   const refillFacts = async () => {
