@@ -160,15 +160,25 @@ export default function Blocks() {
   const [reviewTotal, setReviewTotal] = useState(0);
   const [reviewDone, setReviewDone] = useState(false);
 
-  // Drag state
+  // Drag state — x/y are kept in a ref to avoid triggering the event-listener effect on every frame
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState<null | {
     pieceIdx: number;
     pointerId: number;
-    x: number; y: number;
     offsetX: number; offsetY: number;
   }>(null);
+  const dragXY = useRef({ x: 0, y: 0 });
+  const [dragVisual, setDragVisual] = useState({ x: 0, y: 0 });
   const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
+  // Track last valid hover so pointerup uses it instead of recomputing from (possibly drifted) coordinates
+  const lastHoverRef = useRef<{ r: number; c: number } | null>(null);
+  // Always-fresh refs for values needed inside event handlers
+  const boardLive = useRef(board);
+  useEffect(() => { boardLive.current = board; }, [board]);
+  const piecesLive = useRef(pieces);
+  useEffect(() => { piecesLive.current = pieces; }, [pieces]);
+  const commitPlaceRef = useRef(commitPlace);
+  useEffect(() => { commitPlaceRef.current = commitPlace; });
 
   const refillFacts = async () => {
     if (factsLoading.current) return;
@@ -236,11 +246,12 @@ export default function Blocks() {
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     sfx.click();
+    dragXY.current = { x: e.clientX, y: e.clientY };
+    setDragVisual({ x: e.clientX, y: e.clientY });
+    lastHoverRef.current = null;
     setDrag({
       pieceIdx: idx,
       pointerId: e.pointerId,
-      x: e.clientX,
-      y: e.clientY,
       offsetX: (p.shape[0].length - 1) / 2,
       offsetY: (p.shape.length - 1) / 2,
     });
@@ -248,26 +259,40 @@ export default function Blocks() {
 
   useEffect(() => {
     if (!drag) return;
-    const piece = pieces[drag.pieceIdx];
-    if (!piece) return;
 
     const onMove = (e: PointerEvent) => {
       if (e.pointerId !== drag.pointerId) return;
-      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+      dragXY.current = { x: e.clientX, y: e.clientY };
+      setDragVisual({ x: e.clientX, y: e.clientY });
+      const piece = piecesLive.current[drag.pieceIdx];
+      if (!piece) return;
       const h = computeHover(e.clientX, e.clientY, piece, drag.offsetX, drag.offsetY);
-      setHover(h && canPlace(board, piece.shape, h.r, h.c) ? h : null);
+      const valid = h && canPlace(boardLive.current, piece.shape, h.r, h.c) ? h : null;
+      lastHoverRef.current = valid;
+      setHover(valid);
     };
 
     const onUp = (e: PointerEvent) => {
       if (e.pointerId !== drag.pointerId) return;
-      const h = computeHover(e.clientX, e.clientY, piece, drag.offsetX, drag.offsetY);
-      if (h && canPlace(board, piece.shape, h.r, h.c)) {
-        commitPlace(piece, h.r, h.c, drag.pieceIdx);
+      // Prefer the last known valid hover (matches what was highlighted on the board).
+      // Fall back to recomputing from the final pointer position if hover was never set.
+      let h = lastHoverRef.current;
+      if (!h) {
+        const piece = piecesLive.current[drag.pieceIdx];
+        if (piece) {
+          const computed = computeHover(e.clientX, e.clientY, piece, drag.offsetX, drag.offsetY);
+          if (computed && canPlace(boardLive.current, piece.shape, computed.r, computed.c)) h = computed;
+        }
+      }
+      const piece = piecesLive.current[drag.pieceIdx];
+      if (h && piece) {
+        commitPlaceRef.current(piece, h.r, h.c, drag.pieceIdx);
       } else {
         sfx.wrong();
       }
       setDrag(null);
       setHover(null);
+      lastHoverRef.current = null;
     };
 
     window.addEventListener("pointermove", onMove);
@@ -278,7 +303,7 @@ export default function Blocks() {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [drag, board, pieces]);
+  }, [drag]); // drag no longer contains x/y so this only fires when a drag starts/stops
 
   const spawnSparks = (cells: { r: number; c: number; color: string }[]) => {
     const grid = boardRef.current;
@@ -711,8 +736,8 @@ export default function Blocks() {
         <div
           className="fixed pointer-events-none z-40"
           style={{
-            left: drag.x,
-            top: drag.y - 24,
+            left: dragVisual.x,
+            top: dragVisual.y - 24,
             transform: "translate(-50%, -50%)",
           }}
         >
