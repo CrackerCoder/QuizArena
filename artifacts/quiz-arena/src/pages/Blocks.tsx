@@ -168,7 +168,7 @@ export default function Blocks() {
     offsetX: number; offsetY: number;
   }>(null);
   const dragXY = useRef({ x: 0, y: 0 });
-  const [dragVisual, setDragVisual] = useState({ x: 0, y: 0 });
+  const [dragVisual, setDragVisual] = useState<{ x: number; y: number; snapCellSize?: number }>({ x: 0, y: 0 });
   const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
   // Track last valid hover so pointerup uses it instead of recomputing from (possibly drifted) coordinates
   const lastHoverRef = useRef<{ r: number; c: number } | null>(null);
@@ -226,18 +226,22 @@ export default function Blocks() {
     setReviewDone(false);
   };
 
+  const BOARD_GAP = 4; // gap-1 = 4px
+
   const computeHover = (clientX: number, clientY: number, piece: Piece, offsetX: number, offsetY: number) => {
     const grid = boardRef.current;
     if (!grid) return null;
     const rect = grid.getBoundingClientRect();
-    const cellSize = rect.width / SIZE;
+    // Use gap-aware stride so the snapped cell matches the visual board grid exactly
+    const cellSize = (rect.width - (SIZE - 1) * BOARD_GAP) / SIZE;
+    const stride = cellSize + BOARD_GAP;
     const localX = clientX - rect.left;
     const localY = clientY - rect.top - 24;
-    const c = Math.round(localX / cellSize - offsetX);
-    const r = Math.round(localY / cellSize - offsetY);
+    const c = Math.round(localX / stride - offsetX);
+    const r = Math.round(localY / stride - offsetY);
     if (r < 0 || c < 0 || r >= SIZE || c >= SIZE) return null;
     if (r + piece.shape.length > SIZE || c + piece.shape[0].length > SIZE) return null;
-    return { r, c };
+    return { r, c, cellSize, stride };
   };
 
   const onPiecePointerDown = (e: ReactPointerEvent<HTMLDivElement>, idx: number) => {
@@ -263,13 +267,30 @@ export default function Blocks() {
     const onMove = (e: PointerEvent) => {
       if (e.pointerId !== drag.pointerId) return;
       dragXY.current = { x: e.clientX, y: e.clientY };
-      setDragVisual({ x: e.clientX, y: e.clientY });
       const piece = piecesLive.current[drag.pieceIdx];
       if (!piece) return;
       const h = computeHover(e.clientX, e.clientY, piece, drag.offsetX, drag.offsetY);
       const valid = h && canPlace(boardLive.current, piece.shape, h.r, h.c) ? h : null;
-      lastHoverRef.current = valid;
-      setHover(valid);
+      // Store only r/c in hover state (cellSize/stride are compute-only)
+      const hoverCell = valid ? { r: valid.r, c: valid.c } : null;
+      lastHoverRef.current = hoverCell;
+      setHover(hoverCell);
+
+      if (valid && boardRef.current) {
+        // Snap the floating piece so it overlays the highlighted board cells exactly
+        const boardRect = boardRef.current.getBoundingClientRect();
+        const cols = piece.shape[0].length;
+        const rows = piece.shape.length;
+        const pieceLeft = boardRect.left + valid.c * valid.stride;
+        const pieceTop  = boardRect.top  + valid.r * valid.stride;
+        // Center of the piece (used by translate(-50%,-50%) anchor)
+        const snapX = pieceLeft + (cols * valid.stride - BOARD_GAP) / 2;
+        const snapY = pieceTop  + (rows * valid.stride - BOARD_GAP) / 2;
+        setDragVisual({ x: snapX, y: snapY, snapCellSize: valid.cellSize });
+      } else {
+        // Off-board: ghost follows cursor
+        setDragVisual({ x: e.clientX, y: e.clientY });
+      }
     };
 
     const onUp = (e: PointerEvent) => {
@@ -732,30 +753,41 @@ export default function Blocks() {
       </main>
 
       {/* Floating piece preview while dragging */}
-      {drag && dragPiece && (
-        <div
-          className="fixed pointer-events-none z-40"
-          style={{
-            left: dragVisual.x,
-            top: dragVisual.y - 24,
-            transform: "translate(-50%, -50%)",
-          }}
-        >
+      {drag && dragPiece && (() => {
+        const cs = dragVisual.snapCellSize;
+        const snapping = cs != null;
+        return (
           <div
-            className="grid gap-1 p-1 rounded-md bg-background/40 backdrop-blur-sm shadow-lg ring-1 ring-primary/40"
-            style={{ gridTemplateColumns: `repeat(${dragPiece.shape[0].length}, minmax(0, 1fr))` }}
+            className="fixed pointer-events-none z-40"
+            style={{
+              left: dragVisual.x,
+              top: snapping ? dragVisual.y : dragVisual.y - 24,
+              transform: "translate(-50%, -50%)",
+              // Smooth snap transitions feel tactile; no transition when ghosting off-board
+              transition: snapping ? "left 55ms ease-out, top 55ms ease-out" : "none",
+            }}
           >
-            {dragPiece.shape.flatMap((row, ri) =>
-              row.map((v, ci) => (
-                <div
-                  key={`${ri}-${ci}`}
-                  className={cn("w-6 h-6 sm:w-7 sm:h-7 rounded-sm", v ? dragPiece.color : "opacity-0")}
-                />
-              )),
-            )}
+            <div
+              className={snapping ? "opacity-75" : "p-1 rounded-md bg-background/40 backdrop-blur-sm shadow-lg ring-1 ring-primary/40 opacity-90"}
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${dragPiece.shape[0].length}, ${cs ?? 24}px)`,
+                gap: "4px",
+              }}
+            >
+              {dragPiece.shape.flatMap((row, ri) =>
+                row.map((v, ci) => (
+                  <div
+                    key={`${ri}-${ci}`}
+                    style={{ width: cs ?? 24, height: cs ?? 24 }}
+                    className={cn("rounded-sm", v ? dragPiece.color : "opacity-0")}
+                  />
+                )),
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Mid-screen flashcard — centered via flex parent */}
       {activeFlash && !activeQuestion && (
