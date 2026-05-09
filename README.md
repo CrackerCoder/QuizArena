@@ -2,7 +2,7 @@
 
   > AI-powered study games hub for Malaysian students — learn any topic by playing.
 
-  [![Live Demo](https://img.shields.io/badge/Live%20Demo-Quiz%20Arena-7c3aed?style=for-the-badge)](https://quizarena.replit.app)
+  [![Live Demo](https://img.shields.io/badge/Live%20Demo-Quiz%20Arena-7c3aed?style=for-the-badge)](https://quiz-arena-mattsiew12.replit.app)
 
   ---
 
