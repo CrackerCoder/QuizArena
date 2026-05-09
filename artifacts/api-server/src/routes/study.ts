@@ -43,7 +43,7 @@ const SAFE_ACTIONS = new Set([
   "suggest", "anagram", "fillblank", "crossword", "flashcard", "debate", "compat", "factsquiz",
 ]);
 const ALLOWED_DIFFICULTIES = new Set(["easy", "medium", "hard"]);
-const ALLOWED_LEVELS = new Set(["pt3", "spm", "igcse", "a-level", "university"]);
+const ALLOWED_LEVELS = new Set(["primary", "pt3", "spm", "stpm", "igcse", "o-level", "a-level", "university"]);
 const ALLOWED_LANGUAGES = new Set([
   "english", "malay", "mandarin", "manglish", "mandarin-english", "mandarin-malay",
   "tamil", "tamil-english",
@@ -119,7 +119,6 @@ router.post("/study", async (req, res) => {
 
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 200,
         messages: [
           {
             role: "system",
@@ -138,7 +137,9 @@ Word UPPERCASE.`,
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); }
+      catch { parsed = { word: "STUDY", hint: "Key concept for this topic" }; }
       res.json(parsed);
 
     } else if (action === "hangman") {
@@ -155,7 +156,6 @@ Word UPPERCASE.`,
 
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 200,
         messages: [
           {
             role: "system",
@@ -174,14 +174,15 @@ Word UPPERCASE.`,
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); }
+      catch { parsed = { word: "STUDY", hint: "Key concept for this topic" }; }
       res.json(parsed);
 
     } else if (action === "facts") {
       const notesSection = notes ? `\nContext/syllabus: ${notes}` : "";
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: Math.min(500, count * 70),
         messages: [
           {
             role: "system",
@@ -199,7 +200,9 @@ Return JSON: { "facts": ["fact 1", ...] }`,
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); }
+      catch { parsed = { facts: [] }; }
       res.json(parsed);
 
     } else if (action === "factsquiz") {
@@ -209,7 +212,6 @@ Return JSON: { "facts": ["fact 1", ...] }`,
       const diffGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 1800,
         messages: [
           {
             role: "system",
@@ -223,6 +225,7 @@ Difficulty: ${difficulty}
 Output a JSON object with an "items" array of exactly ${batchCount} elements.
 Each element has: "fact" (string, 1 sentence ≤18 words) and "question" (object).
 Each "question" has: "type":"mcq", "prompt" (string), "choices" (array of 4 strings), "answer" (string, must exactly match one choice), "explanation" (string ≤12 words).
+IMPORTANT: Place the correct answer at a RANDOM position in the choices array (not always first).
 Cover different concepts. No repeats.
 
 Output only the JSON object, nothing else.`,
@@ -231,7 +234,21 @@ Output only the JSON object, nothing else.`,
       });
       try {
         const raw = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as { items?: unknown[] };
-        const items = Array.isArray(raw?.items) ? raw.items : [];
+        const rawItems = Array.isArray(raw?.items) ? raw.items : [];
+        // Server-side shuffle: ensure correct answer is never predictably first
+        const items = rawItems.map((item: unknown) => {
+          const it = item as Record<string, unknown>;
+          const q = it.question as Record<string, unknown> | undefined;
+          if (q && Array.isArray(q.choices) && q.choices.length > 1) {
+            const choices = [...(q.choices as string[])];
+            for (let i = choices.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [choices[i], choices[j]] = [choices[j], choices[i]];
+            }
+            return { ...it, question: { ...q, choices } };
+          }
+          return item;
+        });
         res.json({ items });
       } catch {
         res.json({ items: [] });
@@ -242,7 +259,6 @@ Output only the JSON object, nothing else.`,
       const diffGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 320,
         messages: [
           {
             role: "system",
@@ -291,7 +307,6 @@ Return JSON: { "type": "mcq", "prompt": "...", "choices": ["A","B","C","D"], "an
     } else if (action === "autocorrect") {
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 300,
         messages: [
           {
             role: "system",
@@ -314,18 +329,22 @@ If there is no mismatch, set "mismatch": false and "suggestedSubject": null.`,
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try {
+        parsed = parseAIJson(text);
+      } catch {
+        parsed = { subject, topic: topicName, changed: false, mismatch: false, suggestedSubject: null, note: "" };
+      }
       res.json(parsed);
 
     } else if (action === "suggest") {
       const notesSection = notes ? `\nStudent notes context:\n${notes.slice(0, 500)}` : "";
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 300,
         messages: [
           {
             role: "system",
-            content: "You suggest academic topic completions for Malaysian students (SPM, PT3, IGCSE, A-Level). Return valid JSON only.",
+            content: "You suggest academic topic completions for Malaysian students (Primary SK/SJK, PT3 Form 3, SPM Form 5, STPM Form 6, IGCSE, O Level, A Level). Return valid JSON only.",
           },
           {
             role: "user",
@@ -340,7 +359,8 @@ Return JSON: { "suggestions": ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topi
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); } catch { parsed = { suggestions: [] }; }
       res.json(parsed);
 
     } else if (action === "anagram") {
@@ -349,82 +369,148 @@ Return JSON: { "suggestions": ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topi
       const diffGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 280,
         messages: [
-          { role: "system", content: `You generate vocabulary words for an anagram scramble game for ${educationLevel} students. ${diffGuide} ${langGuide} Return valid JSON only.` },
+          {
+            role: "system",
+            content: `You output ONLY a JSON object — no explanation, no markdown. You generate one vocabulary word for an anagram game for ${educationLevel} students. ${diffGuide}`,
+          },
           {
             role: "user",
-            content: `One key vocabulary term related to: ${topic}${notesSection}${avoidStr}
+            content: `Topic: "${topic}"${notesSection}${avoidStr}
 
-STRICT REQUIREMENTS:
-- ONLY standard English alphabet letters A–Z — absolutely no numbers, symbols, hyphens, formulas, or spaces
-- Single word, 5–9 letters long, pronounceable and spellable letter by letter
-- Must be a real academic term that a student at this level would study
-- For maths/science topics, use the English NAMES of concepts: GRADIENT, INTEGRAL, VARIABLE, QUADRATIC, COSINE, MATRIX, THEOREM, EQUATION, FRACTION, DECIMAL, TANGENT
-- Difficulty: ${difficulty}
+Choose ONE key vocabulary term that is DIRECTLY about "${topic}".
+The word must be a central concept from this specific topic — not a generic academic word.
+Rules: English A–Z letters only, 5–9 letters, single word, no spaces/hyphens/numbers/symbols.
 
-Return JSON: { "word": "WORD", "definition": "full definition (1–2 sentences)", "hint": "short clue ≤8 words" }
-Word MUST be UPPERCASE letters only — no other characters at all.`,
+Output ONLY this JSON (no other text at all):
+{"word":"TOPICWORD","definition":"one clear sentence defining this term within ${topic}","hint":"3-6 word clue"}`,
           },
         ],
       });
-      const anagramResult = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as Record<string, unknown>;
-      if (typeof anagramResult.word === "string") {
-        anagramResult.word = anagramResult.word.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 12) || "STUDY";
+      let anagramResult: Record<string, unknown>;
+      try {
+        anagramResult = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as Record<string, unknown>;
+      } catch {
+        // Pick a fallback word from a diverse bank, avoid repeats
+        const topicLower = topic.toLowerCase();
+        type WordEntry = { word: string; definition: string; hint: string };
+        const bank: WordEntry[] = topicLower.match(/\b(biology|cell|photosynthes|osmosis|respiration|genetics|ecology|evolution|organ)\b/)
+          ? [
+            { word: "OSMOSIS", definition: "Movement of water through a semipermeable membrane from low to high solute concentration.", hint: "Water transport in cells" },
+            { word: "MITOSIS", definition: "Cell division producing two genetically identical daughter cells.", hint: "Cell division type" },
+            { word: "NUCLEUS", definition: "Membrane-bound organelle containing the cell's genetic material.", hint: "Cell control centre" },
+            { word: "GLUCOSE", definition: "A simple sugar that is the primary energy source for cells.", hint: "Energy-giving sugar" },
+            { word: "PROTEIN", definition: "A large molecule made of amino acids with many biological functions.", hint: "Made of amino acids" },
+            { word: "ENZYME", definition: "A biological catalyst that speeds up chemical reactions in the body.", hint: "Biological catalyst" },
+          ]
+          : topicLower.match(/\b(chemistry|atom|molecule|element|compound|reaction|acid|bond|periodic|electrolysis|titration)\b/)
+          ? [
+            { word: "ELECTRON", definition: "A negatively charged subatomic particle found outside the nucleus.", hint: "Negative particle in atom" },
+            { word: "NEUTRON", definition: "A neutral subatomic particle found in the nucleus of an atom.", hint: "Neutral nuclear particle" },
+            { word: "CATALYST", definition: "A substance that speeds up a chemical reaction without being consumed.", hint: "Speeds up reactions" },
+            { word: "COMPOUND", definition: "A substance formed when two or more elements are chemically combined.", hint: "Elements bonded together" },
+            { word: "COVALENT", definition: "A type of chemical bond formed by sharing electrons between atoms.", hint: "Shared electron bond" },
+          ]
+          : topicLower.match(/\b(physics|force|energy|wave|light|electric|motion|gravity|pressure|velocity|momentum|kinetic|thermal)\b/)
+          ? [
+            { word: "VELOCITY", definition: "Speed in a given direction; a vector quantity measured in m/s.", hint: "Speed with direction" },
+            { word: "MOMENTUM", definition: "Product of an object's mass and velocity.", hint: "Mass times velocity" },
+            { word: "FRICTION", definition: "A force that opposes the relative motion between two surfaces.", hint: "Opposing motion force" },
+            { word: "VOLTAGE", definition: "Electric potential difference between two points in a circuit.", hint: "Electrical potential difference" },
+            { word: "KINETIC", definition: "Energy possessed by an object due to its motion.", hint: "Energy of motion" },
+          ]
+          : topicLower.match(/\b(math|algebra|fraction|decimal|equation|gradient|triangle|quadratic|geometry|calculus|statistic)\b/)
+          ? [
+            { word: "FRACTION", definition: "A number that represents part of a whole, written as numerator over denominator.", hint: "Part of a whole" },
+            { word: "GRADIENT", definition: "A measure of steepness or rate of change of a line on a graph.", hint: "Steepness of a line" },
+            { word: "THEOREM", definition: "A mathematical statement that has been proven to be true.", hint: "Proven math statement" },
+            { word: "VARIABLE", definition: "A symbol used to represent an unknown quantity in algebra.", hint: "Unknown in algebra" },
+            { word: "DECIMAL", definition: "A number expressed using the base-10 system with a decimal point.", hint: "Base-10 number system" },
+          ]
+          : topicLower.match(/\b(history|colonial|empire|republic|monarchy|democracy|revolution|independence|treaty|war)\b/)
+          ? [
+            { word: "COLONIAL", definition: "Relating to the period when countries were ruled by foreign powers.", hint: "Foreign rule era" },
+            { word: "MONARCHY", definition: "A system of government in which a king or queen is the head of state.", hint: "King or queen rules" },
+            { word: "REPUBLIC", definition: "A system of government in which people elect representatives.", hint: "Elected government system" },
+            { word: "FEUDALISM", definition: "Medieval social system based on land ownership and military service.", hint: "Medieval land system" },
+            { word: "DEMOCRACY", definition: "A system of government in which citizens vote to elect their leaders.", hint: "Rule by the people" },
+          ]
+          : [
+            { word: "LEARNING", definition: "The process of acquiring knowledge or skills through study or experience.", hint: "Gaining new knowledge" },
+            { word: "CONCEPT", definition: "An abstract idea or general notion forming the basis of understanding.", hint: "Abstract idea" },
+            { word: "THEORY", definition: "A system of ideas intended to explain a set of facts or phenomena.", hint: "Explanatory framework" },
+            { word: "ANALYSIS", definition: "The detailed examination of the elements or structure of something.", hint: "Detailed examination" },
+            { word: "EVIDENCE", definition: "Facts or information indicating whether a belief or proposition is true.", hint: "Supporting facts" },
+          ];
+        const unused = bank.filter((b) => !avoid.map((a) => a.toUpperCase()).includes(b.word));
+        const pool = unused.length > 0 ? unused : bank;
+        anagramResult = pool[Math.floor(Math.random() * pool.length)];
       }
+      if (typeof anagramResult.word === "string") {
+        const cleaned = (anagramResult.word as string).replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 12);
+        anagramResult.word = cleaned.length >= 3 ? cleaned : "LEARNING";
+      } else {
+        anagramResult.word = "LEARNING";
+      }
+      if (!anagramResult.definition) anagramResult.definition = "A key vocabulary term for this topic.";
+      if (!anagramResult.hint) anagramResult.hint = "Think about the topic carefully";
       res.json(anagramResult);
 
     } else if (action === "fillblank") {
       const notesSection = notes ? `\nContext/syllabus: ${notes}` : "";
       const diffGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
+      const isScienceTopic = /\b(biology|chemistry|physics|science|cell|organ|enzyme|photosynthes|osmosis|respiration|genetics|evolution|atom|molecule|element|compound|reaction|force|energy|wave|light|electric|magnetic|circuit|motion|gravity|pressure|density|acid|base|pH|periodic|bond|mitosis|meiosis|diffusion|ecosystem|organ|tissue|nucleus|DNA|RNA|protein|bacteria|virus|gene|chromosome|refraction|reflection|displacement|velocity|acceleration|momentum|kinetic|potential|thermal|radiation|convection|conduction|experiment|lab|titration|electrolysis|catalyst)\b/i.test(topic);
+      const scienceGuide = isScienceTopic
+        ? `\n- Include at least 2 observation sentences (e.g. "When litmus is dipped in acid, it turns ___.")\n- Include 1 sentence from a diagram or graph context`
+        : "";
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 700,
         messages: [
-          { role: "system", content: `You generate fill-in-the-blank study sentences for ${educationLevel} level students. ${diffGuide} ${langGuide} Return valid JSON only.` },
+          {
+            role: "system",
+            content: `You output ONLY a JSON object — no explanation, no markdown, no extra text. Generate fill-in-the-blank sentences for ${educationLevel} students. ${diffGuide} ${langGuide}`,
+          },
           {
             role: "user",
-            content: `Generate 5 fill-in-the-blank sentences about: ${topic}${notesSection}
-Difficulty: ${difficulty}
+            content: `Generate 5 fill-in-the-blank sentences about: "${topic}"${notesSection}
+Difficulty: ${difficulty}${scienceGuide}
 
-Rules:
-- Each sentence ≤20 words with ONE ___ blank replacing a key term
-- Answer: 1-3 words
-- Explanation ≤12 words
-- Cover different concepts — no repeats
+Each sentence: ≤25 words, ONE ___ blank for a key term, answer 1-3 words, explanation ≤12 words.
+All sentences must be directly about "${topic}".
 
-Return JSON:
-{
-  "sentences": [
-    { "sentence": "Sentence with ___.", "answer": "answer", "explanation": "brief why" },
-    ...
-  ]
-}`,
+Output ONLY this JSON (no other text):
+{"sentences":[{"sentence":"Sentence with ___.","answer":"answer","explanation":"brief why"},{"sentence":"Another ___ sentence.","answer":"answer2","explanation":"why2"}]}`,
           },
         ],
       });
-      res.json(parseAIJson(completion.choices[0]?.message?.content ?? "{}"));
+      let fillResult: unknown;
+      try { fillResult = parseAIJson(completion.choices[0]?.message?.content ?? "{}"); }
+      catch { fillResult = { sentences: [] }; }
+      res.json(fillResult);
 
     } else if (action === "crossword") {
       const notesSection = notes ? `\nContext: ${notes}` : "";
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 500,
         messages: [
-          { role: "system", content: `You generate word-clue pairs for a crossword puzzle. Return valid JSON only.` },
+          {
+            role: "system",
+            content: `You output ONLY a JSON object — no explanation, no markdown. Generate crossword word-clue pairs for a study game.`,
+          },
           {
             role: "user",
-            content: `Generate 6 word-clue pairs for a crossword about: ${topic}${notesSection}
+            content: `Generate 6 word-clue pairs for a crossword about: "${topic}"${notesSection}
 
-Each word: 4-10 letters, single word (no spaces/hyphens), key concept from topic.
-Clue: ≤8 words. Choose words that share some letters (for crossword intersections).
+Each entry: word is a key term from "${topic}", 4-10 letters, single word, no spaces or hyphens. Clue ≤8 words.
 
-Return JSON: { "entries": [{ "word": "WORD", "clue": "clue" }, ...] }
-All words UPPERCASE.`,
+Output ONLY this JSON (no other text):
+{"entries":[{"word":"WORD1","clue":"clue one"},{"word":"WORD2","clue":"clue two"},{"word":"WORD3","clue":"clue three"},{"word":"WORD4","clue":"clue four"},{"word":"WORD5","clue":"clue five"},{"word":"WORD6","clue":"clue six"}]}`,
           },
         ],
       });
-      const crossResult = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as { entries?: { word?: string; clue?: string }[] };
+      let crossResult: { entries?: { word?: string; clue?: string }[] };
+      try { crossResult = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as { entries?: { word?: string; clue?: string }[] }; }
+      catch { crossResult = { entries: [] }; }
       if (Array.isArray(crossResult.entries)) {
         crossResult.entries = crossResult.entries
           .map((e) => ({
@@ -440,31 +526,36 @@ All words UPPERCASE.`,
       const diffGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 1100,
         messages: [
-          { role: "system", content: `You generate flashcards for spaced-repetition study for ${educationLevel} level students. ${diffGuide} ${langGuide} Return valid JSON only.` },
+          {
+            role: "system",
+            content: `You output ONLY a JSON object — no explanation, no markdown, no extra text. Generate flashcards for ${educationLevel} level students. ${diffGuide} ${langGuide}`,
+          },
           {
             role: "user",
-            content: `Generate 8 flashcards about: ${topic}${notesSection}
+            content: `Generate 6 flashcards about: ${topic}${notesSection}
 Difficulty: ${difficulty}
 
-Rules:
-- front: term or short question (≤10 words)
-- back: definition or answer (≤2 sentences)
-- tip: mnemonic ≤10 words, or null
-- Cover different key concepts — no repeats
+Each card:
+- front: key term or short question (≤8 words)
+- back: definition or answer (1 sentence, ≤20 words)
+- tip: memory tip ≤8 words, or null
 
-Return JSON:
-{
-  "cards": [
-    { "front": "Term", "back": "Definition", "tip": "mnemonic or null" },
-    ...
-  ]
-}`,
+Output ONLY this JSON (no other text):
+{"cards":[{"front":"Term","back":"Definition","tip":"tip or null"},{"front":"Term2","back":"Definition2","tip":null}]}`,
           },
         ],
       });
-      res.json(parseAIJson(completion.choices[0]?.message?.content ?? "{}"));
+      let flashResult: { cards?: unknown[] };
+      try {
+        flashResult = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as { cards?: unknown[] };
+      } catch {
+        flashResult = { cards: [{ front: topic || "Key Term", back: "Study this topic to learn the key concepts.", tip: null }] };
+      }
+      if (!flashResult.cards?.length) {
+        flashResult = { cards: [{ front: topic || "Key Term", back: "Study this topic to learn the key concepts.", tip: null }] };
+      }
+      res.json(flashResult);
 
     } else if (action === "debate") {
       const notesSection = notes ? `\nContext: ${notes}` : "";
@@ -473,7 +564,6 @@ Return JSON:
       if (isInit) {
         const completion = await openai.chat.completions.create({
           model: "gpt-5-mini",
-          max_completion_tokens: 400,
           messages: [
             { role: "system", content: `You are a debate partner AI for ${educationLevel} level students studying: ${topic}. ${langGuide} Return valid JSON only.` },
             {
@@ -493,7 +583,10 @@ Return JSON:
             },
           ],
         });
-        res.json(parseAIJson(completion.choices[0]?.message?.content ?? "{}"));
+        let debateInit: unknown;
+        try { debateInit = parseAIJson(completion.choices[0]?.message?.content ?? "{}"); }
+        catch { debateInit = { statement: `Is the study of ${topic} important?`, aiPosition: "AGAINST", userPosition: "FOR", aiOpening: "I believe we should examine this critically." }; }
+        res.json(debateInit);
 
       } else {
         const historyMessages = history.map((h) => ({
@@ -516,58 +609,87 @@ Return JSON:
 
         const completion = await openai.chat.completions.create({
           model: "gpt-5-mini",
-          max_completion_tokens: isFinal ? 600 : 350,
           messages: [
             {
               role: "system",
-              content: `You are debating AGAINST: "${aiPosition || "the student's position"}" on topic: ${topic}. ${langGuide} Be sharp, confident, and academically rigorous. Return valid JSON only.`,
+              content: `You output ONLY a JSON object — no explanation, no prose, no markdown. You are a debate opponent arguing AGAINST "${aiPosition || "the student's position"}" on: ${topic}. ${langGuide} Be sharp and academically rigorous.`,
             },
             ...historyMessages,
-            { role: "user", content: `Student argues: ${userMessage}${scoreInstruction}` },
+            {
+              role: "user",
+              content: `Student's argument: "${userMessage}"${scoreInstruction}
+
+IMPORTANT: Output ONLY valid JSON. Do not write any text outside the JSON object.`,
+            },
           ],
         });
-        res.json(parseAIJson(completion.choices[0]?.message?.content ?? "{}"));
+        let debateResp: unknown;
+        try {
+          debateResp = parseAIJson(completion.choices[0]?.message?.content ?? "{}");
+          if (!(debateResp as Record<string, unknown>).aiResponse) throw new Error("missing aiResponse");
+        } catch {
+          debateResp = { aiResponse: "Your argument has merit, but consider this: the evidence does not fully support your claim. Please re-examine your position with specific facts." };
+        }
+        res.json(debateResp);
       }
 
     } else if (action === "compat") {
       const notesSection = notes ? `\nContext: ${notes}` : "";
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 350,
         messages: [
           {
             role: "system",
-            content: "You judge whether word-based study games are compatible with an academic topic. Return valid JSON only.",
+            content: "You judge whether each study game is compatible with an academic topic. Return valid JSON only.",
           },
           {
             role: "user",
             content: `Topic: "${topic}" (${educationLevel} level)${notesSection}
 
-Word-based games need single pronounceable English vocabulary words (5–12 letters, A–Z only):
-- /anagram — scramble one key term
-- /wordle — guess one key term
-- /hangman — guess letters of one key term
-- /crossword — multiple vocabulary words as crossword entries
+Evaluate all 9 games. Return null if compatible, or a short reason (≤6 words) if not.
 
-Be LENIENT. Almost every academic topic has vocabulary. Only disable if truly procedural/numerical with no pronounceable terms.
+WORD GAMES — need single pronounceable A–Z vocabulary words:
+- /anagram — unscramble one key term (5–9 letters). Disable for purely procedural topics with no spellable vocab.
+- /wordle — guess a key term (4–10 letters). Same constraint.
+- /hangman — guess letters of a key term (4–12 letters). Same constraint.
+- /crossword — multiple vocabulary words. Needs ≥6 distinct spellable terms.
 
-Compatible: "Photosynthesis" (CHLOROPHYLL, GLUCOSE), "Algebra" (EQUATION, VARIABLE), "Chemical Bonding" (IONIC, COVALENT)
-Possibly incompatible: extremely procedural topics like "Solving simultaneous equations by substitution step-by-step"
+CONTENT GAMES — work with facts, sentences, concepts:
+- /boss — MCQ + short/long answer questions. Works for almost all academic topics.
+- /fillblank — fill-in-the-blank sentences. Works for most topics; disable for purely abstract procedural topics with no factual statements.
+- /debate — argue a position. Disable for purely procedural/factual topics with no debatable aspect (e.g. "multiplying fractions").
+- /flashcard — front/back flashcards. Works for all academic topics.
+- /blocks — Tetris with study facts. Works for all academic topics.
 
-Return JSON:
+Examples:
+- "Photosynthesis": all games compatible
+- "Solving simultaneous equations by substitution": disable /anagram, /wordle, /hangman, /crossword (no vocab), /debate (not debatable)
+- "Climate change": all compatible
+- "Long division algorithm": disable /anagram, /wordle, /hangman, /crossword, /debate
+
+Return JSON exactly:
 {
   "disabled": {
     "/anagram": null,
     "/wordle": null,
     "/hangman": null,
-    "/crossword": null
+    "/crossword": null,
+    "/boss": null,
+    "/fillblank": null,
+    "/debate": null,
+    "/flashcard": null,
+    "/blocks": null
   }
-}
-null = compatible. Short reason string (max 6 words) = incompatible.`,
+}`,
           },
         ],
       });
-      const compatRaw = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as { disabled?: Record<string, string | null> };
+      let compatRaw: { disabled?: Record<string, string | null> };
+      try {
+        compatRaw = parseAIJson(completion.choices[0]?.message?.content ?? "{}") as { disabled?: Record<string, string | null> };
+      } catch {
+        compatRaw = { disabled: {} };
+      }
       res.json({ disabled: compatRaw.disabled ?? {} });
 
     } else {

@@ -188,10 +188,17 @@ export default function Blocks() {
         settings.topic, 6, settings.educationLevel,
         settings.notes, settings.difficulty, settings.language,
       );
-      // Shuffle MCQ choices so the correct answer isn't always the first option
+      // Shuffle choices so the correct answer isn't always first.
+      // Don't guard on type — shuffle whenever choices array exists (AI may omit type).
       const items = r.items.map((item) => {
-        if (item.question.type === "mcq" && Array.isArray(item.question.choices)) {
-          const shuffled = [...item.question.choices].sort(() => Math.random() - 0.5);
+        const choices = item.question.choices;
+        if (Array.isArray(choices) && choices.length > 1) {
+          // Fisher-Yates — unbiased unlike .sort(() => Math.random() - 0.5)
+          const shuffled = [...choices];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
           return { ...item, question: { ...item.question, choices: shuffled } };
         }
         return item;
