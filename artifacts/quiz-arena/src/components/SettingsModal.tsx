@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, BookOpen } from "lucide-react";
 import {
   useSettings,
   EDUCATION_LEVELS,
@@ -22,6 +22,7 @@ import {
 import { useState, useEffect } from "react";
 import { sfx, setSoundEnabled } from "@/lib/sound";
 import { useT } from "@/lib/i18n";
+import { resetAllTutorials } from "@/lib/tutorial";
 
 export function SettingsModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { settings, setSettings } = useSettings();
@@ -203,6 +204,24 @@ export function SettingsModal({ open, onOpenChange }: { open: boolean; onOpenCha
             <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
               <Label htmlFor="sound" className="cursor-pointer">{t("gameplaySounds")}</Label>
               <Switch id="sound" checked={soundEnabled} onCheckedChange={setSoundLocal} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+              <div>
+                <Label className="cursor-pointer">{t("resetTutorial")}</Label>
+                <p className="text-xs text-muted-foreground">Home tour + all game how-to-play cards</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  resetAllTutorials();
+                  toast.success(t("resetTutorialDone"));
+                }}
+              >
+                <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+                Reset
+              </Button>
             </div>
           </TabsContent>
 

@@ -80,6 +80,8 @@ const EN = {
   loss: "L",
 
   // Settings modal
+  resetTutorial: "Show tutorials again",
+  resetTutorialDone: "Tutorials reset — they'll show on your next visit to each page.",
   settingsTitle: "Settings",
   settingsDesc: "Tune your study setup and visuals.",
   tabStudy: "Study",
@@ -380,6 +382,8 @@ const MS: Translations = {
   win: "M",
   loss: "K",
 
+  resetTutorial: "Tunjukkan tutorial semula",
+  resetTutorialDone: "Tutorial diset semula — akan muncul semula pada lawatan seterusnya.",
   settingsTitle: "Tetapan",
   settingsDesc: "Sesuaikan persediaan belajar dan visual anda.",
   tabStudy: "Belajar",
@@ -668,6 +672,8 @@ const ZH: Translations = {
   win: "赢",
   loss: "输",
 
+  resetTutorial: "重新显示教程",
+  resetTutorialDone: "教程已重置 — 下次进入页面时将重新显示。",
   settingsTitle: "设置",
   settingsDesc: "调整你的学习设置和视觉效果。",
   tabStudy: "学习",
@@ -956,6 +962,8 @@ const TA: Translations = {
   win: "வெ",
   loss: "தோ",
 
+  resetTutorial: "மீண்டும் பயிற்சி காட்டு",
+  resetTutorialDone: "பயிற்சி மீட்டமைக்கப்பட்டது — அடுத்த முறை பக்கம் திறக்கும்போது காட்டப்படும்.",
   settingsTitle: "அமைப்புகள்",
   settingsDesc: "உங்கள் படிப்பு அமைவு மற்றும் காட்சியை சரிசெய்யுங்கள்.",
   tabStudy: "படிப்பு",
