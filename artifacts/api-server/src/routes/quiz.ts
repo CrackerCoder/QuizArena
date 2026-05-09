@@ -5,7 +5,12 @@ const router = Router();
 
 function parseAIJson(raw: string): unknown {
   const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-  return JSON.parse(stripped);
+  try { return JSON.parse(stripped); } catch { /* continue */ }
+  const objMatch = stripped.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch { /* continue */ } }
+  const arrMatch = stripped.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch { /* continue */ } }
+  throw new SyntaxError("No valid JSON found in AI response");
 }
 
 const DIFFICULTY_PROMPTS: Record<string, string> = {
@@ -60,9 +65,16 @@ router.post("/quiz", async (req, res) => {
     if (action === "generate") {
       const notesSection = notes ? `\n\nStudent notes/syllabus context:\n${notes}` : "";
       const difficultyGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
+      const isScienceTopic = /\b(biology|chemistry|physics|science|cell|organ|enzyme|photosynthes|osmosis|respiration|genetics|evolution|atom|molecule|element|compound|reaction|force|energy|wave|light|electric|magnetic|circuit|motion|gravity|pressure|density|acid|base|pH|periodic|bond|mitosis|meiosis|diffusion|ecosystem|tissue|nucleus|DNA|RNA|protein|bacteria|virus|gene|chromosome|refraction|reflection|displacement|velocity|acceleration|momentum|kinetic|potential|thermal|radiation|convection|conduction|experiment|lab|titration|electrolysis|catalyst|ecology|thermodynamics|optics|mechanics|electromagnetism)\b/i.test(topic);
+      const scienceGuide = isScienceTopic ? `
+
+Science-specific requirements — for at least 40% of questions, use ONE of these formats:
+1. DIAGRAM question: Describe a labelled diagram scenario (e.g. "In the diagram of a plant cell, structure X is responsible for ___. What is structure X?")
+2. GRAPH/DATA question: Reference a graph reading or data table (e.g. "A velocity-time graph shows a horizontal line at 10 m/s for 5 seconds. What is the acceleration during this period?")
+3. EXPERIMENT question: Based on a lab procedure or observation (e.g. "A student heats copper carbonate and observes a colour change from green to black. What gas is released?")
+Prefix each such question with [DIAGRAM], [GRAPH], or [EXPERIMENT] in the prompt text.` : "";
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: Math.min(4096, count * 400),
         messages: [
           {
             role: "system",
@@ -73,6 +85,7 @@ router.post("/quiz", async (req, res) => {
             content: `Generate ${count} quiz questions about: ${topic}${notesSection}
 
 Difficulty level: ${difficulty.toUpperCase()} — ${difficultyGuide}
+${scienceGuide}
 
 Return a JSON object with this exact shape:
 {
@@ -96,14 +109,15 @@ Keep questions relevant to ${topic} at ${educationLevel} level with ${difficulty
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); }
+      catch { parsed = { questions: [] }; }
       res.json(parsed);
 
     } else if (action === "evaluate") {
       const difficultyGuide = DIFFICULTY_PROMPTS[difficulty] ?? DIFFICULTY_PROMPTS.medium;
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: 512,
         messages: [
           {
             role: "system",
@@ -129,7 +143,9 @@ At ${difficulty} difficulty: ${difficulty === "easy" ? "Be generous, accept near
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); }
+      catch { parsed = { correct: false, score: 0, feedback: "Could not evaluate answer — please try again." }; }
       res.json(parsed);
 
     } else if (action === "explain") {
@@ -145,7 +161,6 @@ At ${difficulty} difficulty: ${difficulty === "easy" ? "Be generous, accept near
 
       const completion = await openai.chat.completions.create({
         model: "gpt-5-mini",
-        max_completion_tokens: Math.min(2048, Math.max(300, mistakes.length * 200)),
         messages: [
           {
             role: "system",
@@ -172,7 +187,9 @@ Return JSON:
       });
 
       const text = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = parseAIJson(text);
+      let parsed: unknown;
+      try { parsed = parseAIJson(text); }
+      catch { parsed = { explanations: [] }; }
       res.json(parsed);
 
     } else {

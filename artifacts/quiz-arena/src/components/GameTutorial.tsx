@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   icon: string;
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export function GameTutorial({ icon, title, steps, onDismiss }: Props) {
+  const t = useT();
+
   const content = (
     <div
       className="fixed inset-0 z-[200] bg-black/70 flex items-end sm:items-center justify-center p-4"
@@ -22,7 +25,7 @@ export function GameTutorial({ icon, title, steps, onDismiss }: Props) {
           <span className="text-3xl">{icon}</span>
           <div>
             <h2 className="font-display text-lg font-bold leading-tight">{title}</h2>
-            <p className="text-xs text-muted-foreground">How to play</p>
+            <p className="text-xs text-muted-foreground">{t("howToPlay")}</p>
           </div>
         </div>
 
@@ -38,7 +41,7 @@ export function GameTutorial({ icon, title, steps, onDismiss }: Props) {
         </ul>
 
         <Button className="w-full" onClick={onDismiss}>
-          Got it, let's play!
+          {t("gotItLetsPlay")}
         </Button>
       </div>
     </div>

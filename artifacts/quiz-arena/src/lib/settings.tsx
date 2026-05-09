@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 export const EDUCATION_LEVELS = [
-  { value: "upsr", label: "UPSR" },
-  { value: "pt3", label: "PT3" },
+  { value: "primary", label: "Primary School (SK/SJK)" },
+  { value: "pt3", label: "PT3 (Form 3)" },
+  { value: "spm", label: "SPM (Form 5)" },
+  { value: "stpm", label: "STPM (Form 6)" },
   { value: "igcse", label: "IGCSE" },
   { value: "o-level", label: "O Level" },
-  { value: "spm", label: "SPM" },
   { value: "a-level", label: "A Level" },
 ] as const;
 

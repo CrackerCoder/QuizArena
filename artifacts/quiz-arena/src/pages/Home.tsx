@@ -25,6 +25,8 @@ import { useAssignment, GAME_LABELS } from "@/lib/assignment";
 import { useT } from "@/lib/i18n";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { hasCompletedHomeTour, markHomeTourDone } from "@/lib/tutorial";
+import { QuickStartPopover } from "@/components/QuickStartPopover";
+import { PRESET_CATEGORIES } from "@/lib/presets";
 
 const GAME_DEFS = [
   { href: "/boss",      titleKey: "bossRushTitle",    descKey: "descBossRush",    Icon: Sword,         gradient: "bg-gradient-boss",      accent: "text-boss" },
@@ -42,54 +44,6 @@ const DIFFICULTY_OPTIONS: { value: Difficulty; label: string; color: string; des
   { value: "easy", label: "Easy", color: "text-success border-success/60 bg-success/10", desc: "Basic recall, simple vocab" },
   { value: "medium", label: "Medium", color: "text-warning border-warning/60 bg-warning/10", desc: "Application & analysis" },
   { value: "hard", label: "Hard", color: "text-boss border-boss/60 bg-boss/10", desc: "Synthesis, precise reasoning" },
-];
-
-type Preset = { subject: string; topic: string; level: EducationLevel };
-type PresetCategory = { label: string; emoji: string; presets: Preset[] };
-
-const PRESET_CATEGORIES: PresetCategory[] = [
-  {
-    label: "Mathematics",
-    emoji: "📐",
-    presets: [
-      { subject: "Additional Mathematics", topic: "Quadratic Functions", level: "spm" },
-      { subject: "Additional Mathematics", topic: "Differentiation", level: "spm" },
-      { subject: "Additional Mathematics", topic: "Integration", level: "spm" },
-      { subject: "Mathematics", topic: "Statistics", level: "pt3" },
-      { subject: "Mathematics", topic: "Algebraic Expressions", level: "pt3" },
-    ],
-  },
-  {
-    label: "Languages",
-    emoji: "🗣️",
-    presets: [
-      { subject: "Bahasa Melayu", topic: "Teks Argumentatif", level: "spm" },
-      { subject: "Bahasa Melayu", topic: "Teks Perbahasan", level: "spm" },
-      { subject: "English Literature", topic: "Short Stories", level: "spm" },
-      { subject: "English ↔ Malay", topic: "Common Vocabulary", level: "spm" },
-      { subject: "English ↔ Malay", topic: "Peribahasa & Proverbs", level: "spm" },
-    ],
-  },
-  {
-    label: "History & Social",
-    emoji: "🏛️",
-    presets: [
-      { subject: "Sejarah", topic: "Kesultanan Melayu Melaka", level: "spm" },
-      { subject: "Sejarah", topic: "Malaysia Merdeka", level: "spm" },
-      { subject: "Sejarah", topic: "Pembentukan Malaysia", level: "spm" },
-      { subject: "Economics", topic: "Supply and Demand", level: "spm" },
-    ],
-  },
-  {
-    label: "Science",
-    emoji: "🔬",
-    presets: [
-      { subject: "Biology", topic: "Cell Division", level: "spm" },
-      { subject: "Biology", topic: "Photosynthesis", level: "spm" },
-      { subject: "Chemistry", topic: "Chemical Bonding", level: "spm" },
-      { subject: "Physics", topic: "Forces & Motion", level: "spm" },
-    ],
-  },
 ];
 
 // Flat list for fallback use
@@ -223,66 +177,15 @@ function TopicAutocomplete({
   );
 }
 
-function QuickStartPopover({ onApply, busy }: { onApply: (p: { subject: string; topic: string; level: EducationLevel }) => void; busy: boolean }) {
-  const [open, setOpen] = useState(false);
-
-  const handle = (p: { subject: string; topic: string; level: EducationLevel }) => {
-    setOpen(false);
-    onApply(p);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={busy}
-          className="gap-2 border-primary/40 hover:border-primary/70 hover:bg-primary/10"
-          onClick={() => { sfx.click(); setOpen((o) => !o); }}
-        >
-          <Flag className="h-3.5 w-3.5 text-primary" />
-          🇲🇾 Quick Start
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-3 space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Malaysian curriculum topics
-        </div>
-        {PRESET_CATEGORIES.map((cat) => (
-          <div key={cat.label} className="space-y-1">
-            <div className="text-xs font-medium text-foreground/70 flex items-center gap-1">
-              <span>{cat.emoji}</span> {cat.label}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {cat.presets.map((p) => (
-                <button
-                  key={`${p.subject}-${p.topic}`}
-                  type="button"
-                  onClick={() => handle(p)}
-                  className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs hover:border-primary/60 hover:bg-primary/10 transition-all whitespace-nowrap text-left"
-                >
-                  {p.subject === "Additional Mathematics" ? "Add Maths" : p.subject} · {p.topic}
-                  <span className="ml-1 text-muted-foreground opacity-60 uppercase text-[9px]">{p.level}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 function useGameCompat(topic: string, educationLevel: string, notes: string) {
   const [compat, setCompat] = useState<Record<string, string | null>>({});
+  const [checking, setChecking] = useState(false);
   const checkingRef = useRef(false);
 
   useEffect(() => {
     if (!topic) { setCompat({}); return; }
-    const cacheKey = `quiz-arena-compat-${topic.toLowerCase().replace(/\s+/g, "-")}`;
+    const cacheKey = `quiz-arena-compat-v2-${topic.toLowerCase().replace(/\s+/g, "-")}-${educationLevel}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -292,6 +195,7 @@ function useGameCompat(topic: string, educationLevel: string, notes: string) {
     }
     if (checkingRef.current) return;
     checkingRef.current = true;
+    setChecking(true);
     let cancelled = false;
     api.checkGameCompat(topic, educationLevel, notes)
       .then((r) => {
@@ -301,11 +205,14 @@ function useGameCompat(topic: string, educationLevel: string, notes: string) {
         localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), disabled }));
       })
       .catch(() => { if (!cancelled) setCompat({}); })
-      .finally(() => { if (!cancelled) checkingRef.current = false; });
-    return () => { cancelled = true; };
+      .finally(() => {
+        checkingRef.current = false;
+        if (!cancelled) setChecking(false);
+      });
+    return () => { cancelled = true; checkingRef.current = false; setChecking(false); };
   }, [topic, educationLevel, notes]);
 
-  return { compat };
+  return { compat, checking };
 }
 
 function InlineTopicSetup() {
@@ -468,7 +375,7 @@ export default function Home() {
   const [showTour, setShowTour] = useState(false);
   const tourTriggered = useRef(false);
 
-  const { compat } = useGameCompat(
+  const { compat, checking: compatChecking } = useGameCompat(
     needsTopic ? "" : settings.topic,
     settings.educationLevel,
     settings.notes,
@@ -514,6 +421,12 @@ export default function Home() {
         {!needsTopic && <NotesCard />}
 
         <section id="tutorial-game-grid" className={`grid gap-4 sm:gap-5 md:grid-cols-2 ${needsTopic ? "opacity-50 pointer-events-none" : ""}`}>
+          {compatChecking && !needsTopic && (
+            <div className="md:col-span-2 flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Checking which games suit this topic…
+            </div>
+          )}
           {allowedGames && (
             <div className="md:col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
               <BookOpen className="h-3.5 w-3.5 text-primary" />
@@ -574,10 +487,10 @@ export default function Home() {
       {showTour && (
         <TutorialOverlay
           steps={[
-            { title: "Welcome to Quiz Arena! 🎮", message: "AI-powered study games for Malaysian students. Here's a quick 20-second tour!" },
-            { targetId: "tutorial-topic-card", title: "Your study topic", message: "Your current topic is shown here. Tap to change subject, topic, difficulty, or language anytime." },
-            { targetId: "tutorial-game-grid", title: "Pick a game", message: "Each game teaches your topic a different way. Some may be greyed out if they don't work well with your topic." },
-            { targetId: "tutorial-signin", title: "Save your progress", message: "Sign in to sync your XP, streaks, and settings across all your devices." },
+            { title: t("tourWelcomeTitle"), message: t("tourWelcomeMsg") },
+            { targetId: "tutorial-topic-card", title: t("tourTopicTitle"), message: t("tourTopicMsg") },
+            { targetId: "tutorial-game-grid", title: t("tourGamesTitle"), message: t("tourGamesMsg") },
+            { targetId: "tutorial-signin", title: t("tourSigninTitle"), message: t("tourSigninMsg") },
           ]}
           onFinish={() => { markHomeTourDone(); setShowTour(false); }}
         />

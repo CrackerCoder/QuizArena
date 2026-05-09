@@ -324,6 +324,7 @@ const EN = {
   tourSigninMsg: "Sign in to sync your XP, streaks, and settings across all your devices.",
   gotItLetsPlay: "Got it, let's play!",
   gameNotIdeal: "Not ideal for this topic",
+  howToPlay: "How to play",
 };
 
 const MS: Translations = {
@@ -611,6 +612,7 @@ const MS: Translations = {
   tourSigninMsg: "Log masuk untuk segerakkan XP, rekod, dan tetapan merentas semua peranti anda.",
   gotItLetsPlay: "Faham, jom main!",
   gameNotIdeal: "Tidak sesuai untuk topik ini",
+  howToPlay: "Cara bermain",
 };
 
 const ZH: Translations = {
@@ -898,6 +900,7 @@ const ZH: Translations = {
   tourSigninMsg: "登录即可在所有设备上同步您的XP、记录和设置。",
   gotItLetsPlay: "明白了，开始玩！",
   gameNotIdeal: "不适合此主题",
+  howToPlay: "如何玩",
 };
 
 const TA: Translations = {
@@ -1185,6 +1188,7 @@ const TA: Translations = {
   tourSigninMsg: "அனைத்து சாதனங்களிலும் XP, மதிப்பெண்கள் சேமிக்க உள்நுழைக.",
   gotItLetsPlay: "புரிந்தது, விளையாடலாம்!",
   gameNotIdeal: "இந்த தலைப்புக்கு ஏற்றதல்ல",
+  howToPlay: "விளையாடுவது எப்படி",
 };
 
 const DICT: Record<UILang, Translations> = { en: EN, ms: MS, zh: ZH, ta: TA };

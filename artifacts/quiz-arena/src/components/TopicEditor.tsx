@@ -10,6 +10,8 @@ import { sfx } from "@/lib/sound";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { saveTopicHistory } from "@/lib/history";
+import { QuickStartPopover } from "@/components/QuickStartPopover";
+import type { Preset } from "@/lib/presets";
 
 const DIFFICULTY_OPTIONS: { value: Difficulty; label: string; activeClass: string }[] = [
   { value: "easy", label: "Easy", activeClass: "border-success/70 bg-success/15 text-success font-bold" },
@@ -32,6 +34,13 @@ export function TopicEditor({ compact = false }: { compact?: boolean }) {
       setTimeout(() => subjectRef.current?.focus(), 30);
     }
   }, [editing, settings.subject, settings.topicName, settings.topic]);
+
+  const applyPreset = (p: Preset) => {
+    setSubject(p.subject);
+    setTopicName(p.topic);
+    setSettings({ educationLevel: p.level });
+    sfx.click();
+  };
 
   const commit = async () => {
     let s = subject.trim();
@@ -69,9 +78,12 @@ export function TopicEditor({ compact = false }: { compact?: boolean }) {
             <Sparkles className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="text-sm font-medium">Edit subject &amp; topic</div>
-          <button onClick={() => setEditing(false)} className="ml-auto text-muted-foreground hover:text-foreground" aria-label="Cancel">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <QuickStartPopover onApply={applyPreset} busy={busy} />
+            <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground" aria-label="Cancel">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">

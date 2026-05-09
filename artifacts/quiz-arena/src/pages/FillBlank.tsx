@@ -144,7 +144,7 @@ export default function FillBlank() {
           onDismiss={() => { markGameTutorialSeen("fillblank"); setShowTutorial(false); }}
         />
       )}
-      <main className="container max-w-lg py-4 sm:py-6 px-4 flex-1 flex flex-col gap-4 overflow-y-auto">
+      <main className="container max-w-lg py-4 sm:py-6 px-4 flex-1 flex flex-col gap-4 overflow-y-auto overscroll-contain">
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center py-20 text-muted-foreground gap-3">
@@ -193,6 +193,7 @@ export default function FillBlank() {
                     onKeyDown={e => e.key === "Enter" && submit()}
                     placeholder="Type your answer…"
                     className="flex-1"
+                    style={{ fontSize: "16px" }}
                     autoComplete="off"
                     spellCheck={false}
                   />

@@ -129,7 +129,7 @@ export default function Debate() {
             score: finalScore,
             details: { clarity: res.scores.clarity, evidence: res.scores.evidence, logic: res.scores.logic },
           });
-          submitScore(finalScore, outcome);
+          submitScore("debate", finalScore, outcome);
           submitResult("debate", finalScore, outcome);
         }
         sfx.win();
@@ -164,7 +164,7 @@ export default function Debate() {
           onDismiss={() => { markGameTutorialSeen("debate"); setShowTutorial(false); }}
         />
       )}
-      <div className="container max-w-2xl py-4 sm:py-6 px-4 flex-1 flex flex-col gap-4 min-h-0">
+      <div className="container max-w-2xl py-4 sm:py-6 px-4 flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
 
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
@@ -208,8 +208,8 @@ export default function Debate() {
             <LeaderboardPanel game="debate" />
           </div>
         ) : (
-          <div className="flex-1 flex flex-col gap-3">
-            <Card className="p-3 bg-gradient-card border-border/60">
+          <div className="flex-1 flex flex-col gap-3 min-h-0">
+            <Card className="p-3 bg-gradient-card border-border/60 shrink-0">
               <div className="text-xs text-muted-foreground mb-1">{t("debateStatement")}</div>
               <p className="font-semibold text-sm leading-snug">"{statement}"</p>
               <div className="flex gap-4 mt-2 text-xs">
@@ -219,7 +219,7 @@ export default function Debate() {
               </div>
             </Card>
 
-            <div className="flex-1 flex flex-col gap-2 overflow-y-auto min-h-0" style={{ maxHeight: "clamp(140px, 38dvh, 360px)" }}>
+            <div className="flex-1 flex flex-col gap-2 overflow-y-auto min-h-0">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
@@ -244,13 +244,14 @@ export default function Debate() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 shrink-0">
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendArgument(); } }}
                 placeholder={t("argPlaceholder", { pos: userPosition })}
-                className="min-h-[56px] max-h-[120px] resize-none text-sm"
+                className="min-h-[52px] max-h-[100px] resize-none text-sm"
+                style={{ fontSize: "16px" }}
                 disabled={busy || done}
               />
               <div className="flex gap-2">
