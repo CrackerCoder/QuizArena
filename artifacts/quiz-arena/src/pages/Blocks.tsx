@@ -188,7 +188,15 @@ export default function Blocks() {
         settings.topic, 6, settings.educationLevel,
         settings.notes, settings.difficulty, settings.language,
       );
-      setFactPool((p) => [...p, ...r.items]);
+      // Shuffle MCQ choices so the correct answer isn't always the first option
+      const items = r.items.map((item) => {
+        if (item.question.type === "mcq" && Array.isArray(item.question.choices)) {
+          const shuffled = [...item.question.choices].sort(() => Math.random() - 0.5);
+          return { ...item, question: { ...item.question, choices: shuffled } };
+        }
+        return item;
+      });
+      setFactPool((p) => [...p, ...items]);
     } catch {
       // handled
     } finally {
